@@ -6,6 +6,7 @@ create extension if not exists pgcrypto;
 drop trigger if exists on_auth_user_created on auth.users;
 drop table if exists releases;
 drop table if exists sessions;
+drop table if exists accounts;
 drop table if exists profiles;
 drop function if exists handle_new_user;
 drop function if exists is_moderator;
