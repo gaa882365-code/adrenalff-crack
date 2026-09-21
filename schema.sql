@@ -1,4 +1,4 @@
--- ADRENALFF CRACK // схема Supabase (custom auth: ник + пароль, без почты)
+﻿-- ADRENALFF CRACK // схема Supabase (custom auth: ник + пароль, без почты)
 -- Выполни целиком в SQL Editor. Скрипт безопасно сбрасывает всё и создаёт заново.
 
 create extension if not exists pgcrypto;
@@ -73,7 +73,7 @@ revoke all on table public.releases  from anon, authenticated;
 create or replace function public.auth_register(u text, p text)
 returns jsonb
 language plpgsql
-security definer set search_path = public
+security definer set search_path = public, extensions
 as $$
 declare _u text := btrim(coalesce(u, ''));
 declare _p text := coalesce(p, '');
@@ -95,7 +95,7 @@ begin
   end;
   insert into public.accounts (id, username, pass, role)
   values (gen_random_uuid(), _u, crypt(_p, gen_salt('bf')), _role);
-  _tok := encode(gen_random_bytes(32), 'hex');
+  _tok := replace(gen_random_uuid()::text, '-', '') || replace(gen_random_uuid()::text, '-', '');
   insert into public.sessions (token, uid)
   select _tok, id from public.accounts where username = _u;
   return jsonb_build_object('ok', true, 'token', _tok, 'username', _u, 'role', _role);
@@ -106,7 +106,7 @@ $$;
 create or replace function public.auth_login(u text, p text)
 returns jsonb
 language plpgsql
-security definer set search_path = public
+security definer set search_path = public, extensions
 as $$
 declare a public.accounts;
 declare _tok text;
@@ -116,7 +116,7 @@ begin
     return jsonb_build_object('ok', false, 'error', 'неверный ник или пароль');
   end if;
   delete from public.sessions where uid = a.id;
-  _tok := encode(gen_random_bytes(32), 'hex');
+  _tok := replace(gen_random_uuid()::text, '-', '') || replace(gen_random_uuid()::text, '-', '');
   insert into public.sessions (token, uid) values (_tok, a.id);
   return jsonb_build_object('ok', true, 'token', _tok, 'username', a.username, 'role', a.role);
 end;
@@ -126,7 +126,7 @@ $$;
 create or replace function public.auth_me(t text)
 returns jsonb
 language plpgsql
-security definer set search_path = public
+security definer set search_path = public, extensions
 as $$
 declare a public.accounts;
 begin
@@ -144,7 +144,7 @@ $$;
 create or replace function public.auth_logout(t text)
 returns void
 language sql
-security definer set search_path = public
+security definer set search_path = public, extensions
 as $$
   delete from public.sessions where token = t;
 $$;
@@ -159,7 +159,7 @@ returns table (
   dl integer, date timestamptz
 )
 language sql
-security definer set search_path = public
+security definer set search_path = public, extensions
 as $$
   select
     r.id, r.title, r.version, r.type, r.category, r.platform, r.size,
@@ -184,7 +184,7 @@ create or replace function public.add_release(
 )
 returns jsonb
 language plpgsql
-security definer set search_path = public
+security definer set search_path = public, extensions
 as $$
 declare a public.accounts;
 begin
@@ -219,7 +219,7 @@ $$;
 create or replace function public.moderate(t text, rid bigint, action text)
 returns jsonb
 language plpgsql
-security definer set search_path = public
+security definer set search_path = public, extensions
 as $$
 declare a public.accounts;
 begin
@@ -250,7 +250,7 @@ $$;
 create or replace function public.bump_dl(rid bigint)
 returns void
 language sql
-security definer set search_path = public
+security definer set search_path = public, extensions
 as $$
   update public.releases set dl = dl + 1 where id = rid;
 $$;
