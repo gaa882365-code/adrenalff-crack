@@ -103,20 +103,18 @@
       </div>
 
       <form class="form" id="formLogin" autocomplete="on">
-        <div class="m-block-label">// почта</div>
-        <input class="input" type="email" id="loginEmail" placeholder="you@mail.ru" required>
+        <div class="m-block-label">// ник</div>
+        <input class="input" type="text" id="loginName" placeholder="adrenal.ff" autocomplete="username" required>
         <div class="m-block-label">// пароль</div>
-        <input class="input" type="password" id="loginPass" placeholder="••••••••" required>
+        <input class="input" type="password" id="loginPass" placeholder="••••••••" autocomplete="current-password" required>
         <button class="btn-dl btn-block" type="submit">войти</button>
       </form>
 
       <form class="form" id="formRegister" style="display:none" autocomplete="on">
         <div class="m-block-label">// ник</div>
-        <input class="input" type="text" id="regName" placeholder="adrenal.ff" required>
-        <div class="m-block-label">// почта</div>
-        <input class="input" type="email" id="regEmail" placeholder="you@mail.ru" required>
+        <input class="input" type="text" id="regName" placeholder="adrenal.ff" autocomplete="username" required>
         <div class="m-block-label">// пароль (мин. 6)</div>
-        <input class="input" type="password" id="regPass" placeholder="••••••••" minlength="6" required>
+        <input class="input" type="password" id="regPass" placeholder="••••••••" minlength="6" autocomplete="new-password" required>
         <button class="btn-dl btn-block" type="submit">создать аккаунт</button>
       </form>
 

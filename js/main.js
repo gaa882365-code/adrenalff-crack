@@ -12,9 +12,10 @@ if (cfgOk && window.supabase) {
   sb = supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
 }
 
+var TOKEN_KEY = "af-token";
+
 var state = {
   user: null,
-  profile: null,
   query: "",
   category: "Все",
   sort: "date-desc",
@@ -23,72 +24,83 @@ var state = {
   allCats: ["Все"]
 };
 
+function token() {
+  return state.user ? state.user.token : null;
+}
+
+function api(fn, args) {
+  return sb.rpc(fn, args || {});
+}
+
 function init() {
-  initAuth();
   bindUi();
   tick();
   setInterval(tick, 1000);
 
   if (!cfgOk) {
     document.getElementById("notice").style.display = "block";
-    var grid = document.getElementById("releaseGrid");
-    grid.innerHTML = '<div class="empty-state">supabase не настроен.<br>открой <b>js/supabase-config.js</b> и вставь URL + anon key</div>';
+    document.getElementById("releaseGrid").innerHTML =
+      '<div class="empty-state">supabase не настроен.<br>открой <b>js/supabase-config.js</b> и вставь URL + anon key</div>';
     return;
   }
   if (!window.supabase) {
-    alert("не удалось загрузить supabase-js (нет интернета? cdn.jsdelivr.net заблокирован?)");
+    document.getElementById("notice").style.display = "block";
+    document.getElementById("notice").innerHTML =
+      "не удалось загрузить supabase-js — интернет или https://cdn.jsdelivr.net недоступен";
+    return;
   }
-  loadReleases();
+
+  var stored = localStorage.getItem(TOKEN_KEY);
+  if (stored) {
+    api("auth_me", { t: stored }).then(function (res) {
+      if (!res.error && res.data && res.data.ok) {
+        state.user = { token: stored, username: res.data.username, role: res.data.role };
+      } else {
+        localStorage.removeItem(TOKEN_KEY);
+      }
+      renderTopbar();
+      renderViewBar();
+      loadReleases();
+    });
+  } else {
+    renderTopbar();
+    renderViewBar();
+    loadReleases();
+  }
 }
 
 /* ---------- auth ---------- */
 
-function initAuth() {
-  sb.auth.getSession().then(function (res) {
-    if (res.error) return;
-    setSession(res.data.session);
-  });
-
-  sb.auth.onAuthStateChange(function (event, session) {
-    if (event === "INITIAL_SESSION" || event === "TOKEN_REFRESHED") return;
-    setSession(session);
+function doAuth(fn, args) {
+  return api(fn, args).then(function (res) {
+    if (res.error) {
+      return { ok: false, error: res.error.message };
+    }
+    var d = res.data;
+    if (!d || !d.ok) {
+      return { ok: false, error: d && d.error ? d.error : "ошибка" };
+    }
+    localStorage.setItem(TOKEN_KEY, d.token);
+    state.user = { token: d.token, username: d.username, role: d.role };
+    renderTopbar();
+    renderViewBar();
+    return { ok: true };
   });
 }
 
-function setSession(session) {
-  var isArmed = !!session;
-  if (isArmed) {
-    state.user = session.user;
-    loadProfile(session.user.id);
-  } else {
-    state.user = null;
-    state.profile = null;
-    state.view = "catalog";
-  }
+function logout() {
+  var t = token();
+  state.user = null;
+  localStorage.removeItem(TOKEN_KEY);
+  if (t) api("auth_logout", { t: t });
   renderTopbar();
   renderViewBar();
-  if (cfgOk) loadReleases();
-}
-
-function loadProfile(uid) {
-  sb
-    .from("profiles")
-    .select("id, username, role")
-    .eq("id", uid)
-    .maybeSingle()
-    .then(function (res) {
-      if (!res.error && res.data) {
-        state.profile = res.data;
-      } else {
-        state.profile = { username: "??", role: "user" };
-      }
-      renderTopbar();
-      renderViewBar();
-    });
+  loadReleases();
+  toast("вышел");
 }
 
 function roleLevel() {
-  return state.profile ? ROLES[state.profile.role] || 0 : 0;
+  return state.user ? ROLES[state.user.role] || 0 : 0;
 }
 
 function isMod() {
@@ -102,24 +114,20 @@ function renderTopbar() {
     document.getElementById("btnLogin").addEventListener("click", openAuthModal);
     return;
   }
-  var role = state.profile ? state.profile.role : "user";
-  var name = state.profile ? state.profile.username : "??";
   var modBtn = isMod()
     ? '<button class="icon-btn" id="btnMod">МОДЕРАЦИЯ</button>'
     : "";
   box.innerHTML =
     '<div class="user-chip">' +
-    '<span class="user-name">' + esc(name) + "</span>" +
-    '<span class="role-badge ' + ROLE_CLASS[role] + '">' + ROLE_LABEL[role] + "</span>" +
+    '<span class="user-name">' + esc(state.user.username) + "</span>" +
+    '<span class="role-badge ' + ROLE_CLASS[state.user.role] + '">' + ROLE_LABEL[state.user.role] + "</span>" +
     "</div>" +
     '<button class="icon-btn acc" id="btnUpload">ВЫЛОЖИТЬ</button>' +
     modBtn +
     '<button class="icon-btn warn" id="btnLogout">ВЫЙТИ</button>';
 
   document.getElementById("btnUpload").addEventListener("click", openUploadModal);
-  document.getElementById("btnLogout").addEventListener("click", function () {
-    sb.auth.signOut();
-  });
+  document.getElementById("btnLogout").addEventListener("click", logout);
   var mod = document.getElementById("btnMod");
   if (mod) mod.addEventListener("click", function () { toggleView("moderation"); });
 }
@@ -130,13 +138,12 @@ function renderViewBar() {
     bar.style.display = "none";
     return;
   }
-  var pending = state.releases.filter(function (r) { return r.status === "pending" && isMod(); });
   bar.style.display = "flex";
   document.getElementById("viewCatalog").className = "chip" + (state.view === "catalog" ? " active" : "");
   var modChip = document.getElementById("viewModeration");
   modChip.className = "chip" + (state.view === "moderation" ? " active" : "");
   modChip.style.display = isMod() ? "" : "none";
-  document.getElementById("pendingNum").textContent = pending.length || "";
+  document.getElementById("pendingNum").textContent = pendingCount() || "";
 }
 
 function toggleView(v) {
@@ -148,9 +155,7 @@ function toggleView(v) {
 /* ---------- data ---------- */
 
 function loadReleases() {
-  var q = sb.from("releases").select("*");
-  if (!state.user) q = q.eq("status", "approved");
-  q.order("date", { ascending: false }).then(function (res) {
+  api("get_releases", { t: token() }).then(function (res) {
     if (res.error) {
       toast("ошибка базы: " + res.error.message, true);
       return;
@@ -158,18 +163,11 @@ function loadReleases() {
     state.releases = res.data || [];
     state.allCats = ["Все"];
     state.releases.forEach(function (r) {
-      if (state.allCats.indexOf(r.category) === -1) state.allCats.push(r.category);
+      if (r && state.allCats.indexOf(r.category) === -1) state.allCats.push(r.category);
     });
     renderChips();
     render();
   });
-}
-
-function visible(r) {
-  if (r.status === "approved") return true;
-  if (!state.user) return false;
-  if (state.user.id === r.uploader) return true;
-  return isMod();
 }
 
 function filter() {
@@ -219,14 +217,14 @@ function render() {
     return;
   }
 
-  var approved = state.releases.filter(function (r) { return r.status === "approved" && visible(r); });
-  var list = sortArr(filter().filter(function (r) { return r.status === "approved" && visible(r); }));
+  var approved = state.releases.filter(function (r) { return r.status === "approved"; });
+  var list = sortArr(filter());
   var dlSum = approved.reduce(function (a, r) { return a + (r.dl || 0); }, 0);
 
   document.getElementById("stat-total").textContent = approved.length;
   document.getElementById("stat-verified").textContent = pendingCount();
   document.getElementById("stat-dl").textContent = dlSum.toLocaleString("ru-RU");
-  document.getElementById("resultCount").innerHTML = "в каталоге&nbsp;<b>" + list.length + "</b>";
+  document.getElementById("resultCount").innerHTML = "в каталоге&nbsp;<b>" + approved.length + "</b>";
 
   if (!list.length) {
     grid.innerHTML = '<div class="empty-state">пусто. релизов нет.<br>зайди и <b>выложи первый</b></div>';
@@ -244,9 +242,7 @@ function render() {
 
 function pendingCount() {
   if (!state.user) return 0;
-  return state.releases.filter(function (r) {
-    return r.status === "pending" && (isMod() || state.user.id === r.uploader);
-  }).length;
+  return state.releases.filter(function (r) { return r.status === "pending"; }).length;
 }
 
 function cardHtml(r) {
@@ -338,17 +334,11 @@ function modRowHtml(r, needs) {
 }
 
 function modAction(id, act) {
-  var upd = { reviewed_at: new Date().toISOString() };
-  if (act === "approve") { upd.status = "approved"; }
-  if (act === "reject") { upd.status = "rejected"; }
-  var p;
-  if (act === "delete") {
-    p = sb.from("releases").delete().eq("id", id);
-  } else {
-    p = sb.from("releases").update(upd).eq("id", id);
-  }
-  p.then(function (res) {
-    if (res.error) { toast("ошибка: " + res.error.message, true); return; }
+  api("moderate", { t: token(), rid: id, action: act }).then(function (res) {
+    if (res.error || (res.data && !res.data.ok)) {
+      toast("ошибка: " + ((res.data && res.data.error) || res.error.message), true);
+      return;
+    }
     toast(act === "delete" ? "удалено" : act === "approve" ? "опубликовано ✓" : "отклонено");
     loadReleases();
   });
@@ -418,7 +408,7 @@ function openRelease(id) {
 
   var dlBtn = body.querySelector("[data-bump]");
   if (dlBtn) dlBtn.addEventListener("click", function () {
-    sb.rpc("bump_dl", { rid: parseInt(dlBtn.dataset.bump, 10) });
+    api("bump_dl", { rid: parseInt(dlBtn.dataset.bump, 10) });
   });
 
   body.querySelector("[data-copy-pass]").addEventListener("click", function (e) {
@@ -498,41 +488,28 @@ function authMsg(text, cls) {
 
 function onLogin(e) {
   e.preventDefault();
-  var email = document.getElementById("loginEmail").value.trim();
+  var name = document.getElementById("loginName").value.trim();
   var pass = document.getElementById("loginPass").value;
+  if (!name || !pass) { authMsg("заполни ник и пароль", "err"); return; }
   authMsg("проверяю...", "dim");
-  sb.auth.signInWithPassword({ email: email, password: pass }).then(function (res) {
-    if (res.error) {
-      authMsg(res.error.message, "err");
-      return;
-    }
-    closeModal(document.getElementById("authModal").querySelector(".modal-close"));
+  doAuth("auth_login", { u: name, p: pass }).then(function (r) {
+    if (!r.ok) { authMsg(r.error, "err"); return; }
+    closeModal(document.querySelector("#authModal .modal-close"));
     toast("добро пожаловать");
+    loadReleases();
   });
 }
 
 function onRegister(e) {
   e.preventDefault();
   var name = document.getElementById("regName").value.trim();
-  var email = document.getElementById("regEmail").value.trim();
   var pass = document.getElementById("regPass").value;
-  if (!name) { authMsg("придумай ник", "err"); return; }
   authMsg("создаю...", "dim");
-  sb.auth.signUp({
-    email: email,
-    password: pass,
-    options: { data: { username: name } }
-  }).then(function (res) {
-    if (res.error) {
-      authMsg(res.error.message, "err");
-      return;
-    }
-    if (res.data.session) {
-      closeModal(document.getElementById("authModal").querySelector(".modal-close"));
-      toast("аккаунт создан");
-    } else {
-      authMsg("аккаунт создан. подтверди e-mail — придёт письмо (или выключи confirm email в supabase)", "ok");
-    }
+  doAuth("auth_register", { u: name, p: pass }).then(function (r) {
+    if (!r.ok) { authMsg(r.error, "err"); return; }
+    closeModal(document.querySelector("#authModal .modal-close"));
+    toast("аккаунт создан");
+    loadReleases();
   });
 }
 
@@ -551,43 +528,31 @@ function openUploadModal() {
     o.value = c;
     catList.appendChild(o);
   });
-  var m = document.getElementById("uploadModal");
-  m.classList.add("open");
-  m.setAttribute("aria-hidden", "false");
+  document.getElementById("uploadModal").classList.add("open");
+  document.getElementById("uploadModal").setAttribute("aria-hidden", "false");
 }
 
 function onUpload(e) {
   e.preventDefault();
   if (!state.user) return;
 
-  var title = document.getElementById("upTitle").value.trim();
-  var category = document.getElementById("upCategory").value.trim();
-  var desc = document.getElementById("upDesc").value.trim();
-  if (!title || !category || !desc) {
-    toast("заполни название, категорию и описание", true);
-    return;
-  }
-
-  var row = {
-    title: title,
+  api("add_release", {
+    t: token(),
+    title: document.getElementById("upTitle").value.trim(),
     version: document.getElementById("upVersion").value.trim(),
     type: document.getElementById("upType").value,
-    category: category,
+    category: document.getElementById("upCategory").value.trim(),
     platform: document.getElementById("upPlatform").value.trim(),
     size: document.getElementById("upSize").value.trim(),
-    desc: desc,
+    descr: document.getElementById("upDesc").value.trim(),
     download_link: document.getElementById("upLink").value.trim(),
-    password: document.getElementById("upPass").value.trim() || "-",
-    uploader: state.user.id,
-    uploader_name: state.profile ? state.profile.username : "anon"
-  };
-
-  sb.from("releases").insert(row).then(function (res) {
-    if (res.error) {
-      toast("ошибка: " + res.error.message, true);
+    password: document.getElementById("upPass").value.trim()
+  }).then(function (res) {
+    if (res.error || (res.data && !res.data.ok)) {
+      toast("ошибка: " + ((res.data && res.data.error) || res.error.message), true);
       return;
     }
-    closeModal(document.getElementById("uploadModal").querySelector(".modal-close"));
+    closeModal(document.querySelector("#uploadModal .modal-close"));
     document.getElementById("formUpload").reset();
     toast("отправлено на проверку ✓");
     loadReleases();
