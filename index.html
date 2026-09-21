@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ADRENALFF CRACK — архив релизов</title>
+<meta name="description" content="ADRENALFF CRACK — тёмный архив релизов. Каталог, поиск, раздача.">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<div class="scanlines" aria-hidden="true"></div>
+<div class="noise" aria-hidden="true"></div>
+<div class="backdrop-glow" aria-hidden="true"></div>
+
+<header class="topbar">
+  <div class="topbar-inner">
+    <div class="brand">
+      <pre class="brand-logo">▄▀▄ ADRENALFF CRACK ▄▀▄</pre>
+      <span class="brand-sub">release archive // v.2.0</span>
+    </div>
+    <div class="top-user" id="topUser">
+      <button class="btn-login" id="btnLogin">ВХОД / РЕГ</button>
+    </div>
+  </div>
+</header>
+
+<div class="notice" id="notice" style="display:none">
+  supabase не настроен — открой <b>js/supabase-config.js</b> и вставь URL + anon key из своего проекта.
+</div>
+
+<div class="ticker-wrap" aria-hidden="true">
+  <div class="ticker">
+    <span>TRACKER ON</span>
+    <span>///</span>
+    <span>NEW DROP 03:11</span>
+    <span>///</span>
+    <span>ARCHIVE SYNC OK</span>
+    <span>///</span>
+    <span>MODERATION QUEUE ATTACHED</span>
+    <span>///</span>
+    <span>CLIENT v2.0</span>
+    <span>///</span>
+    <span>TRACKER ON</span>
+    <span>///</span>
+  </div>
+</div>
+
+<main class="shell">
+  <section class="hero">
+    <h1 class="hero-title"><span class="hero-glow">RELEASE</span> ARCHIVE</h1>
+    <p class="hero-sub" id="heroSub">только проверенные файлы · фиксы · кейгены · лоадеры. выкладывай сам — модерация проглядит.</p>
+    <div class="hero-stats">
+      <div class="stat"><span class="stat-num" id="stat-total">0</span><span class="stat-lbl">релизов</span></div>
+      <div class="stat"><span class="stat-num accent" id="stat-verified">0</span><span class="stat-lbl">ожидают</span></div>
+      <div class="stat"><span class="stat-num" id="stat-dl">0</span><span class="stat-lbl">скачиваний</span></div>
+    </div>
+  </section>
+
+  <section class="controls">
+    <div class="search-box">
+      <span class="search-mark">&gt;_</span>
+      <input type="text" id="searchInput" placeholder="фильтр по названию / версии / категории..." autocomplete="off" spellcheck="false">
+      <span class="search-ok" id="searchOk">OK</span>
+    </div>
+    <div class="chips" id="categoryChips"></div>
+    <div class="sort-row">
+      <label class="sort-lbl" for="sortSelect">sort&nbsp;::</label>
+      <select id="sortSelect">
+        <option value="date-desc">новые сверху</option>
+        <option value="date-asc">старые сверху</option>
+        <option value="dl-desc">по скачиваниям</option>
+        <option value="az">по алфавиту</option>
+      </select>
+      <span class="sort-count" id="resultCount"></span>
+    </div>
+  </section>
+
+  <section class="view-bar" id="viewBar" style="display:none">
+    <button class="chip active" id="viewCatalog" data-view="catalog">КАТАЛОГ</button>
+    <button class="chip" id="viewModeration" data-view="moderation">МОДЕРАЦИЯ <span class="pending-num" id="pendingNum"></span></button>
+  </section>
+
+  <section class="grid" id="releaseGrid"></section>
+
+  <footer class="footer">
+    <div class="footer-line"></div>
+    <p>ADRENALFF CRACK // релиз-архив. контент добавляется оператором.</p>
+    <p class="footer-dim">ошибки, баги, просьбы — через оператора. бэкап каждые 12ч.</p>
+  </footer>
+</main>
+
+<!-- ---------- auth modal ---------- -->
+
+<div class="modal" id="authModal" aria-hidden="true">
+  <div class="modal-backdrop" data-close-modal></div>
+  <div class="modal-panel modal-panel-sm" role="dialog" aria-modal="true">
+    <button class="modal-close" data-close-modal title="закрыть">✕</button>
+    <div class="modal-body">
+      <div class="tabs">
+        <button class="tab active" data-tab="login">ВХОД</button>
+        <button class="tab" data-tab="register">РЕГИСТРАЦИЯ</button>
+      </div>
+
+      <form class="form" id="formLogin" autocomplete="on">
+        <div class="m-block-label">// почта</div>
+        <input class="input" type="email" id="loginEmail" placeholder="you@mail.ru" required>
+        <div class="m-block-label">// пароль</div>
+        <input class="input" type="password" id="loginPass" placeholder="••••••••" required>
+        <button class="btn-dl btn-block" type="submit">войти</button>
+      </form>
+
+      <form class="form" id="formRegister" style="display:none" autocomplete="on">
+        <div class="m-block-label">// ник</div>
+        <input class="input" type="text" id="regName" placeholder="adrenal.ff" required>
+        <div class="m-block-label">// почта</div>
+        <input class="input" type="email" id="regEmail" placeholder="you@mail.ru" required>
+        <div class="m-block-label">// пароль (мин. 6)</div>
+        <input class="input" type="password" id="regPass" placeholder="••••••••" minlength="6" required>
+        <button class="btn-dl btn-block" type="submit">создать аккаунт</button>
+      </form>
+
+      <div class="auth-msg" id="authMsg"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ---------- upload modal ---------- -->
+
+<div class="modal" id="uploadModal" aria-hidden="true">
+  <div class="modal-backdrop" data-close-modal></div>
+  <div class="modal-panel" role="dialog" aria-modal="true">
+    <button class="modal-close" data-close-modal title="закрыть">✕</button>
+    <div class="modal-body">
+      <div class="m-head"><h2 class="m-title">ВЫЛОЖИТЬ РЕЛИЗ</h2></div>
+      <div class="auth-msg dim" id="uploadHint">релиз уйдёт на проверку. после аппрува появится в каталоге.</div>
+
+      <form class="form" id="formUpload">
+        <div class="form-grid">
+          <div class="form-col">
+            <div class="m-block-label">// название *</div>
+            <input class="input" id="upTitle" placeholder="XSoftware Pro" required>
+            <div class="m-block-label">// версия</div>
+            <input class="input" id="upVersion" placeholder="2026.1.0">
+            <div class="m-block-label">// тип *</div>
+            <select class="input sel" id="upType">
+              <option value="crack">CRACK</option>
+              <option value="keygen">KEYGEN</option>
+              <option value="loader">LOADER</option>
+              <option value="patch">PATCH</option>
+              <option value="linux">LINUX</option>
+            </select>
+            <div class="m-block-label">// категория *</div>
+            <input class="input" id="upCategory" placeholder="Графика" list="catList" required>
+            <datalist id="catList"></datalist>
+          </div>
+          <div class="form-col">
+            <div class="m-block-label">// платформа</div>
+            <input class="input" id="upPlatform" placeholder="Windows x64">
+            <div class="m-block-label">// размер</div>
+            <input class="input" id="upSize" placeholder="1,2 ГБ">
+            <div class="m-block-label">// пароль архива</div>
+            <input class="input" id="upPass" placeholder="-">
+            <div class="m-block-label">// ссылка на файлы (магнет/URL)</div>
+            <input class="input" id="upLink" placeholder="овер_тьфу">
+          </div>
+        </div>
+        <div class="m-block-label">// описание *</div>
+        <textarea class="input area" id="upDesc" placeholder="что внутри, как ставить..." required></textarea>
+        <button class="btn-dl btn-block" type="submit">отправить на проверку</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- ---------- release modal ---------- -->
+
+<div class="modal" id="releaseModal" aria-hidden="true">
+  <div class="modal-backdrop" data-close-modal></div>
+  <div class="modal-panel" role="dialog" aria-modal="true">
+    <button class="modal-close" data-close-modal title="закрыть">✕</button>
+    <div class="modal-body" id="modalBody"></div>
+  </div>
+</div>
+
+<!-- ---------- toast ---------- -->
+
+<div class="toast" id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/supabase-config.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
