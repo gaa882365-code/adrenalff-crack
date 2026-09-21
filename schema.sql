@@ -42,7 +42,7 @@ create table releases (
   category text not null default 'Разное',
   platform text not null default '',
   size text not null default '',
-  desc text not null default '',
+  "desc" text not null default '',
   download_link text not null default '',
   password text not null default '',
   status release_status not null default 'pending',
